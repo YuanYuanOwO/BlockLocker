@@ -43,7 +43,7 @@ public final class BlockLockerCommand implements TabExecutor {
         if (args.length > 2) {
             return Collections.emptyList();
         }
-        return Arrays.asList("2", "3", "4");
+        return List.of("reload");
     }
 
     private boolean reloadCommand(CommandSender sender) {
