@@ -11,16 +11,16 @@ class RedstoneProfileImpl implements Profile {
 
     static final String REDSTONE_KEY = "r";
 
-    private final String tag;
+    private final String translatedTag;
 
     /**
      * Creates a new [Redstone]-profile.
      *
-     * @param translation
+     * @param translatedTag
      *            Usually "Redstone", may be localized.
      */
-    RedstoneProfileImpl(String translation) {
-        this.tag = translation;
+    RedstoneProfileImpl(String translatedTag) {
+        this.translatedTag = translatedTag;
     }
 
     /**
@@ -39,7 +39,7 @@ class RedstoneProfileImpl implements Profile {
 
     @Override
     public String getDisplayName() {
-        return '[' + tag + ']';
+        return '[' + translatedTag + ']';
     }
 
     @Override
