@@ -1,6 +1,5 @@
 package nl.rutgerkok.blocklocker.impl.event;
 
-
 import java.util.Optional;
 
 import org.bukkit.ChatColor;
@@ -21,13 +20,11 @@ import nl.rutgerkok.blocklocker.location.IllegalLocationException;
 import nl.rutgerkok.blocklocker.profile.Profile;
 import nl.rutgerkok.blocklocker.protection.Protection;
 
-
 public class SignChangeListener extends EventListener {
 
     public SignChangeListener(BlockLockerPluginImpl plugin) {
         super(plugin);
     }
-
 
     private Optional<SignType> getExistingSignType(Block block, Side side) {
         BlockState blockState = block.getState();
@@ -67,18 +64,45 @@ public class SignChangeListener extends EventListener {
         if (newSignType.filter(SignType::isMainSign).isPresent()) {
             // Edited a main sign (for an existing protection)
             if (oldSignType.isPresent()) {
-                // Make sure the owner name on the sign stays the same
-                // (except for players with the correct permission)
+                // Get the original owner line from the existing sign
+                BlockState blockState = event.getBlock().getState();
+                String originalOwnerLine = "";
+                if (blockState instanceof Sign) {
+                    originalOwnerLine = ((Sign) blockState).getSide(event.getSide()).getLine(1);
+                }
+
+                String newOwnerLine = event.getLine(1);
+
+                if (newOwnerLine == null || newOwnerLine.trim().isEmpty()) {
+                    // Owner line is empty, restore from existing sign or protection
+                    if (originalOwnerLine != null && !originalOwnerLine.trim().isEmpty()) {
+                        event.setLine(1, originalOwnerLine);
+                    } else {
+                        // Fallback: use protection owner or current player
+                        Optional<Profile> owner = protection.getOwner();
+                        if (owner.isPresent()) {
+                            event.setLine(1, owner.get().getDisplayName());
+                        } else {
+                            event.setLine(1, player.getName());
+                        }
+                    }
+                    plugin.getTranslator().sendMessage(player, Translation.COMMAND_CANNOT_EDIT_OWNER);
+                    return;
+                }
+
                 if (!player.hasPermission(Permissions.CAN_ADMIN)) {
-                    Optional<Profile> owner = protection.getOwner();
-                    if (owner.isPresent() && !event.getLine(1).equals(owner.get().getDisplayName())) {
-                        if (!event.getLine(1).strip().equals(owner.get().getDisplayName().strip())) {
+                    // Check if the owner line has been changed
+                    if (!newOwnerLine.equals(originalOwnerLine)) {
+                        // Also check if it's just whitespace differences
+                        if (!newOwnerLine.strip().equals(originalOwnerLine.strip())) {
                             // Only notify for visible name changes
                             plugin.getTranslator().sendMessage(player, Translation.COMMAND_CANNOT_EDIT_OWNER);
                         }
-                        event.setLine(1, owner.get().getDisplayName());
+                        // Always restore the original owner line
+                        event.setLine(1, originalOwnerLine);
                     }
                 }
+
             } else {
                 // Second main sign is not allowed
                 plugin.getTranslator().sendMessage(player, Translation.PROTECTION_ADD_MORE_USERS_SIGN_INSTEAD);
@@ -157,7 +181,8 @@ public class SignChangeListener extends EventListener {
 
     @EventHandler(ignoreCancelled = true)
     public void onSignChange(SignChangeEvent event) {
-        Optional<Protection> protection = plugin.getProtectionFinder().findExistingProtectionForNewSign(event.getBlock());
+        Optional<Protection> protection = plugin.getProtectionFinder()
+                .findExistingProtectionForNewSign(event.getBlock());
 
         if (protection.isPresent()) {
             // Changing a sign near a container
@@ -173,7 +198,7 @@ public class SignChangeListener extends EventListener {
      * protection will be found and updated for uuids.
      *
      * @param block
-     *            The block that will be part of the protection.
+     *              The block that will be part of the protection.
      */
     private void updateBlockForUniqueIdsSoon(final Block block) {
         plugin.runLater(block, new Runnable() {
